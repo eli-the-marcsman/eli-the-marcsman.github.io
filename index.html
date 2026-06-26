@@ -584,6 +584,16 @@
       letter-spacing: 0.06em;
     }
 
+    /* ── Background canvas ──────────────────────── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+
     /* ── Responsive ─────────────────────────────── */
     @media (max-width: 768px) {
       .nav-links      { display: none; }
@@ -605,6 +615,8 @@
 </head>
 <body>
 
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
 <!-- ── Navigation ───────────────────────────────── -->
 <nav>
   <div class="nav-inner">
@@ -622,7 +634,7 @@
 <!-- ── Hero ─────────────────────────────────────── -->
 <section id="hero">
   <div class="hero-inner">
-    <div class="hero-label">Cybersecurity analyst &mdash; SOC &amp; GRC track</div>
+    <div class="hero-label">Cybersecurity analyst | SOC &amp; GRC track</div>
     <h1 class="hero-name">
       Elijah<br>
       <span class="accent">Marcisz</span>
@@ -983,6 +995,124 @@
 <footer>
   <p class="footer-text">Elijah Marcisz &nbsp;&middot;&nbsp; Chicago metro &nbsp;&middot;&nbsp; elijah.marcisz5@gmail.com</p>
 </footer>
+
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('bg-canvas');
+  const ctx    = canvas.getContext('2d');
+  const CYAN   = '0,212,255';
+  const BG     = '11,15,26';
+
+  let W = 0, H = 0, raf = 0;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    initRain();
+  }
+
+  /* ── 3-D Perspective Grid ─────────────────────── */
+  let gt = 0;
+
+  function drawGrid() {
+    const vx   = W * 0.5;
+    const vy   = H * 0.38;
+    const sprd = W * 1.5;
+    const NV   = Math.max(10, Math.min(26, Math.floor(W / 52)));
+    const NH   = 14;
+
+    gt += 0.005;
+
+    ctx.save();
+    ctx.lineWidth = 0.6;
+
+    /* radial perspective lines from vanishing point */
+    for (let i = 0; i <= NV; i++) {
+      const t  = i / NV;
+      const bx = vx + (t - 0.5) * sprd;
+      const a  = Math.abs(t - 0.5) < 0.04 ? 0.18 : 0.055;
+      ctx.strokeStyle = `rgba(${CYAN},${a})`;
+      ctx.beginPath();
+      ctx.moveTo(vx, vy);
+      ctx.lineTo(bx, H);
+      ctx.stroke();
+    }
+
+    /* horizontal lines scrolling toward viewer */
+    for (let i = 0; i < NH; i++) {
+      const p  = ((i / NH) + gt) % 1;
+      const pp = p * p * p;               /* cubic perspective curve */
+      const y  = vy + (H - vy) * pp;
+      if (y < vy) continue;
+      const xs = pp * sprd * 0.5;
+      ctx.strokeStyle = `rgba(${CYAN},${pp * 0.15})`;
+      ctx.beginPath();
+      ctx.moveTo(vx - xs, y);
+      ctx.lineTo(vx + xs, y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /* ── Binary Rain ──────────────────────────────── */
+  const FS  = 12;
+  let drops = [];
+
+  function initRain() {
+    const nc = Math.ceil(W / FS);
+    while (drops.length < nc)
+      drops.push({
+        y:  Math.random() * -(H / FS),
+        v:  0.22 + Math.random() * 0.46,
+        on: Math.random() > 0.58,
+      });
+    drops.length = nc;
+  }
+
+  function drawRain() {
+    ctx.font         = `${FS}px 'JetBrains Mono', monospace`;
+    ctx.textBaseline = 'top';
+
+    for (let i = 0; i < drops.length; i++) {
+      const d = drops[i];
+      if (!d.on) continue;
+      const x = i * FS;
+      const y = Math.floor(d.y) * FS;
+      if (y >= 0 && y < H) {
+        ctx.fillStyle = `rgba(${CYAN},0.62)`;
+        ctx.fillText(Math.random() < 0.5 ? '0' : '1', x, y);
+      }
+      d.y += d.v;
+      if (d.y * FS > H + 10) {
+        d.y  = Math.random() * -(H / FS * 0.4);
+        d.on = Math.random() > 0.42;
+        d.v  = 0.22 + Math.random() * 0.46;
+      }
+    }
+  }
+
+  /* ── Main loop ────────────────────────────────── */
+  function frame() {
+    ctx.fillStyle = `rgba(${BG},0.15)`;
+    ctx.fillRect(0, 0, W, H);
+    drawGrid();
+    drawRain();
+    raf = requestAnimationFrame(frame);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(raf);
+    else frame();
+  });
+
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+  frame();
+}());
+</script>
 
 </body>
 </html>
